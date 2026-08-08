@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import math
 import random
+import zlib
+from datetime import datetime, timedelta, timezone
 
 from .seeds import DEFAULT_SEED, SEEDS, TickerSeed
 from .types import Bar
+
+MS_PER_DAY = 86_400_000
 
 SECONDS_PER_YEAR = 252 * 6.5 * 3600      # 252 trading days x 6.5h
 DT = 0.5 / SECONDS_PER_YEAR              # one 500ms step as a fraction of a year
@@ -20,6 +24,7 @@ class SimEngine:
     """Advances correlated GBM prices one 500ms step at a time."""
 
     def __init__(self, seed: int | None = None) -> None:
+        self._seed = seed          # retained so synthetic history is reproducible
         self._rng = random.Random(seed)
         self._prices: dict[str, float] = {}
         self._seeds: dict[str, TickerSeed] = {}
@@ -72,15 +77,24 @@ class SimEngine:
     # -- synthetic history -------------------------------------------------
 
     def history(self, ticker: str, days: int, end_ms: int) -> list[Bar]:
-        """Deterministic daily OHLC ending near the ticker's current price.
+        """Deterministic daily OHLC ending at the ticker's current price.
 
         Walks GBM *backwards* from the live price so the last bar's close lines
-        up with what the stream is currently showing. Uses a per-ticker RNG so a
-        given symbol always renders the same past (stable across chart reopens).
+        up with what the stream is currently showing. The RNG is seeded from the
+        engine seed + symbol (via crc32, not Python's per-process-salted
+        ``hash``), so a given symbol renders the same past across chart reopens
+        *and* across process restarts — honouring ``SIM_SEED`` for E2E tests.
+
+        Bars are spaced on business days (weekends skipped) so the x-axis matches
+        real Massive daily aggregates; the final bar is anchored at ``end_ms``.
         """
+        if days <= 0:
+            return []
         self._ensure(ticker)
         seed = self._seeds[ticker]
-        rng = random.Random(hash((ticker, days)) & 0xFFFFFFFF)
+        base = self._seed if self._seed is not None else 0
+        rng_seed = (base * 2_654_435_761 ^ zlib.crc32(ticker.encode()) ^ (days * 40_503)) & 0xFFFFFFFF
+        rng = random.Random(rng_seed)
 
         close = self._prices[ticker]
         rows: list[tuple[float, float, float, float]] = []  # o,h,l,c per day
@@ -96,10 +110,24 @@ class SimEngine:
             close = prev_close
 
         rows.reverse()  # oldest first
-        ms_per_day = 86_400_000
+        timestamps = _business_day_timestamps(end_ms, days)  # ascending, last == end_ms
         return [
-            Bar(t=end_ms - (days - 1 - i) * ms_per_day,
-                o=o, h=h, low=low, c=c,
-                v=round(rng.uniform(1e6, 5e7)))
+            Bar(t=timestamps[i], o=o, h=h, low=low, c=c,
+                v=float(round(rng.uniform(1e6, 5e7))))
             for i, (o, h, low, c) in enumerate(rows)
         ]
+
+
+def _business_day_timestamps(end_ms: int, days: int) -> list[int]:
+    """`days` millisecond timestamps ending at `end_ms`, one per business day
+    (Mon-Fri), ascending. The last entry is exactly `end_ms`; earlier entries
+    step back over weekdays only, keeping each bar's time-of-day aligned."""
+    end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
+    out = [end_ms]                       # anchor the latest bar at "now"
+    offset = 1
+    while len(out) < days:
+        if (end_dt - timedelta(days=offset)).weekday() < 5:   # 0-4 == Mon-Fri
+            out.append(end_ms - offset * MS_PER_DAY)
+        offset += 1
+    out.reverse()
+    return out

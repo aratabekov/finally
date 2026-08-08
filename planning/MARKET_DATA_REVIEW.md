@@ -108,3 +108,25 @@ Note: `GET /api/history/{ticker}` is an addition beyond the PLAN §8 endpoint ta
 ## 6. Recommendation
 
 Ship it. Address **M1** before relying on `SIM_SEED` for deterministic E2E chart tests (it's the only finding with functional impact on the stated testing strategy). **L1** (bound `days`) and **L2** (tolerant env parse) are cheap hardening wins. Everything else is polish that can ride along with the portfolio/chat work that builds on this layer.
+
+---
+
+## 7. Resolution log (2026-08-08)
+
+All findings above have been addressed. Test suite grew from **32 → 41 passing**.
+
+| ID | Status | What changed |
+|----|--------|--------------|
+| **M1** | ✅ Fixed | `SimEngine.history` now seeds its RNG from the engine seed + `zlib.crc32(ticker)` instead of Python's per-process-salted `hash()`. History is now stable across restarts and honours `SIM_SEED`. New subprocess test (`test_history_is_deterministic_across_processes`) runs the same history under two `PYTHONHASHSEED` values and asserts equality — it fails against the old code. |
+| **L1** | ✅ Fixed | `/api/history/{ticker}` clamps `days` to `[1, MAX_HISTORY_DAYS=1825]`. Tests: `test_history_clamps_excessive_days`, `test_history_clamps_non_positive_days_to_one`. |
+| **L2** | ✅ Fixed | `config.py` gained `_float_env` / `_int_env` helpers that log a warning and fall back to the default instead of raising `ValueError` at import on a malformed value. |
+| **L3** | ✅ Fixed | Synthetic-history volume is now `float(round(...))`; `test_history_volume_is_float` guards it. |
+| **L4** | ✅ Fixed | The SSE generator prunes de-watchlisted tickers from its per-connection `last_sent` map each cycle, so it can't grow unbounded. |
+| **L5** | ✅ Fixed | Synthetic history is spaced on business days (weekends skipped) via `_business_day_timestamps`, with the final bar anchored at "now". Test renamed to `test_history_bar_timestamps_are_business_days_and_ordered`. |
+| Test gap 1 (SSE) | ✅ Added | `test_sse_generator_emits_price_tick_frames` exercises `_price_events` directly (avoids the infinite-stream hang under `TestClient`). |
+| Test gap 2 (determinism) | ✅ Added | Covered by the M1 subprocess test. |
+| Test gap 3 (ABC conformance) | ✅ Added | `tests/test_source_conformance.py` asserts both sources are registered subclasses with no unimplemented abstract methods. |
+| Test gap 4 (Massive history request) | ✅ Added | `test_history_requests_expected_endpoint_and_params` asserts the aggregates path + `adjusted`/`sort` params on the actual outgoing request. |
+| **N1** | ⚪ No action | Empty `__init__.py` files are valid regular packages and build/import correctly; left as-is intentionally. |
+| **N2** | ⚪ No action | Redundant `@pytest.mark.asyncio` markers are harmless under `asyncio_mode = "auto"`; left to avoid churn. |
+| **N3** | ⚪ No action | Massive history date-window heuristic is adequate for 90-day charts; unchanged. |
