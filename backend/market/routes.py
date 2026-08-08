@@ -31,10 +31,17 @@ async def _price_events(request: Request, cache: PriceCache):
         if await request.is_disconnected():
             break
 
-        for ticker, tick in (await cache.snapshot()).items():
+        snapshot = await cache.snapshot()
+        for ticker, tick in snapshot.items():
             if last_sent.get(ticker) != tick.timestamp:
                 last_sent[ticker] = tick.timestamp
                 yield f"data: {_tick_json(tick)}\n\n"
+
+        # Drop de-watchlisted tickers so last_sent can't grow without bound on a
+        # long-lived connection.
+        if len(last_sent) > len(snapshot):
+            for stale in last_sent.keys() - snapshot.keys():
+                del last_sent[stale]
 
         cycles += 1
         if cycles % heartbeat_every == 0:
@@ -57,8 +64,12 @@ async def stream_prices(request: Request):
     )
 
 
+MAX_HISTORY_DAYS = 5 * 365   # cap so a huge `days` can't tie up the event loop
+
+
 @router.get("/history/{ticker}")
 async def history(ticker: str, request: Request, days: int = 90):
+    days = max(1, min(days, MAX_HISTORY_DAYS))
     source = request.app.state.market_source
     bars: list[Bar] = await source.get_history(ticker.upper(), days=days)
     # Map Bar.low -> "l" so the payload is the {t,o,h,l,c,v} charts expect.

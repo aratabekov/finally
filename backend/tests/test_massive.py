@@ -82,6 +82,24 @@ async def test_history_maps_to_bar_shape():
 
 
 @pytest.mark.asyncio
+async def test_history_requests_expected_endpoint_and_params():
+    captured = {}
+
+    def handler(req):
+        captured["path"] = req.url.path
+        captured["params"] = dict(req.url.params)
+        return httpx.Response(200, json={"results": []})
+
+    src = MassiveSource("key")
+    src._client = _client(handler)
+    await src.get_history("AAPL", days=90)
+    assert captured["path"].startswith("/v2/aggs/ticker/AAPL/range/1/day/")
+    assert captured["params"]["adjusted"] == "true"
+    assert captured["params"]["sort"] == "asc"
+    await src.aclose()
+
+
+@pytest.mark.asyncio
 async def test_history_transport_error_returns_empty_list():
     def handler(req):
         raise httpx.ConnectError("boom", request=req)
