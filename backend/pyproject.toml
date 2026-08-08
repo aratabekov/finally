@@ -1,0 +1,28 @@
+[project]
+name = "finally-backend"
+version = "0.1.0"
+description = "FinAlly backend — FastAPI market data, portfolio, and chat services"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.uv]
+# This is a FastAPI application (run via `uvicorn main:app` from within
+# backend/), not a library — nothing needs to `pip install` it. Telling uv
+# not to build/install it as a package avoids having to hand-maintain a
+# wheel manifest for the top-level main.py/config.py modules alongside the
+# market/ and db/ packages.
+package = false
