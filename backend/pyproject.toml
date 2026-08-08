@@ -1,0 +1,24 @@
+[project]
+name = "finally-backend"
+version = "0.1.0"
+description = "FinAlly backend — market data subsystem"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",   # ASGI server; [standard] adds efficient SSE I/O
+    "httpx>=0.27",               # async client for the Massive source
+    "python-dotenv>=1.0",        # load .env in local dev
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["market*", "config*"]
