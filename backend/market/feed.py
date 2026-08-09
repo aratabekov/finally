@@ -53,6 +53,9 @@ class MarketFeed:
         # get_active_tickers hits SQLite synchronously; run off the event
         # loop thread so a slow disk read never stalls connected SSE clients.
         tickers = await asyncio.to_thread(self._get_active_tickers)
+        # Evict anything no longer watched or held, so a removed ticker stops
+        # being priced instead of sitting in the cache at a frozen price.
+        await self._cache.retain(tickers)
         if not tickers:
             return
         try:

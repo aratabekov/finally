@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0e14;
+  --color-panel: #11151e;
+  --color-panel-hi: #1a1a2e;
+  --color-rule: #242a37;
+  --color-rule-soft: #1a1f2a;
+  --color-ink: #d7dde8;
+  --color-muted: #79839a;
+  --color-dim: #4d5566;
+  --color-accent: #ecad0a;
+  --color-blue: #209dd7;
+  --color-purple: #753991;
+  --color-up: #2ecc8f;
+  --color-down: #f2545b;
+
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+/* Panel chrome: hairline rules, mono micro-labels. */
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-rule);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.625rem;
+  height: 1.75rem;
+  flex: none;
+  border-bottom: 1px solid var(--color-rule);
+  background: linear-gradient(to bottom, #161b26, var(--color-panel));
+}
+
+.panel-title {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.panel-stat {
+  font-size: 0.6875rem;
+  color: var(--color-dim);
+  letter-spacing: 0.06em;
+}
+
+/* Price flash: a decaying tint plus a lit left edge. */
+@keyframes flash-up {
+  0% {
+    background-color: color-mix(in oklab, var(--color-up) 20%, transparent);
+    box-shadow: inset 2px 0 0 var(--color-up);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 2px 0 0 transparent;
+  }
+}
+
+@keyframes flash-down {
+  0% {
+    background-color: color-mix(in oklab, var(--color-down) 20%, transparent);
+    box-shadow: inset 2px 0 0 var(--color-down);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 2px 0 0 transparent;
+  }
+}
+
+.flash-up {
+  animation: flash-up 420ms ease-out;
+}
+
+.flash-down {
+  animation: flash-down 420ms ease-out;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.dot-live {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+*:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down,
+  .dot-live {
+    animation: none;
+  }
+}

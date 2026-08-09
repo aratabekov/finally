@@ -30,6 +30,52 @@ async def test_feed_noop_when_no_active_tickers():
     assert await cache.snapshot() == {}
 
 
+@pytest.mark.asyncio
+async def test_feed_evicts_tickers_that_leave_the_active_set():
+    # Active set = watchlist union open positions. A ticker that drops out of
+    # it must stop being priced, or it stays tradeable at a frozen price.
+    active = ["AAPL", "ZZZZ"]
+    cache = PriceCache()
+    feed = MarketFeed(SimulatedSource(seed=5), cache,
+                      get_active_tickers=lambda: active)
+    await feed.prime()
+    assert set(await cache.snapshot()) == {"AAPL", "ZZZZ"}
+
+    active.remove("ZZZZ")       # de-watchlisted, no open position
+    await feed._tick_once()
+    snapshot = await cache.snapshot()
+    assert "ZZZZ" not in snapshot
+    assert "AAPL" in snapshot   # still active, so it keeps its live price
+
+
+@pytest.mark.asyncio
+async def test_feed_keeps_pricing_a_held_ticker_after_it_leaves_the_watchlist(
+    tmp_path, monkeypatch
+):
+    # load_active_tickers keeps tickers with an open position, so the position
+    # never loses its price even once it is off the watchlist.
+    from db import connection as connection_module
+    from db.reads import load_active_tickers
+
+    monkeypatch.setattr(connection_module, "DB_PATH", tmp_path / "finally.db")
+    cache = PriceCache()
+    feed = MarketFeed(SimulatedSource(seed=5), cache,
+                      get_active_tickers=load_active_tickers)
+    conn = connection_module.get_connection()
+    try:
+        conn.execute("DELETE FROM watchlist")
+        conn.execute(
+            "INSERT INTO positions (id, user_id, ticker, quantity, avg_cost, updated_at) "
+            "VALUES ('p1', 'default', 'AAPL', 5, 100.0, '2026-08-09T00:00:00+00:00')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    await feed.prime()
+    assert set(await cache.snapshot()) == {"AAPL"}
+
+
 class _FlakySource(MarketDataSource):
     poll_interval_seconds = 0.01
 

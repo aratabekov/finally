@@ -39,3 +39,28 @@ async def test_snapshot_contains_all_tickers():
     await cache.update(_tick("MSFT", 420.0))
     snap = await cache.snapshot()
     assert set(snap) == {"AAPL", "MSFT"}
+
+
+@pytest.mark.asyncio
+async def test_retain_drops_tickers_outside_the_set():
+    cache = PriceCache()
+    await cache.update(_tick("AAPL", 190.0))
+    await cache.update(_tick("MSFT", 420.0))
+    await cache.retain(["AAPL"])
+    assert set(await cache.snapshot()) == {"AAPL"}
+
+
+@pytest.mark.asyncio
+async def test_retain_ignores_tickers_it_has_never_seen():
+    cache = PriceCache()
+    await cache.update(_tick("AAPL", 190.0))
+    await cache.retain(["AAPL", "TSLA"])
+    assert set(await cache.snapshot()) == {"AAPL"}
+
+
+@pytest.mark.asyncio
+async def test_retain_nothing_empties_the_cache():
+    cache = PriceCache()
+    await cache.update(_tick("AAPL", 190.0))
+    await cache.retain([])
+    assert await cache.snapshot() == {}

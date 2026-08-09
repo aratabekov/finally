@@ -1,0 +1,44 @@
+.git
+.github
+.gitignore
+.claude
+
+# Secrets and local env — passed at runtime via --env-file instead.
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+backend/tests
+backend/demo.py
+
+# Node / Next.js
+**/node_modules
+**/.next
+**/out
+**/npm-debug.log*
+**/.turbo
+
+# Runtime database — the container uses the mounted volume.
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Not needed in the image
+planning
+test
+scripts
+docker-compose.yml
+Dockerfile
+**/README.md
+LICENSE
+**/CLAUDE.md
+**/AGENTS.md
+**/.DS_Store

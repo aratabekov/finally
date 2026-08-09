@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 
 from .types import PriceTick
 
@@ -21,3 +22,12 @@ class PriceCache:
     async def snapshot(self) -> dict[str, PriceTick]:
         async with self._lock:
             return dict(self._ticks)  # shallow copy: consistent view, no tearing
+
+    async def retain(self, tickers: Iterable[str]) -> None:
+        """Drop every cached tick outside `tickers`. Feed-only, like update():
+        without it a de-watchlisted ticker would keep a frozen price that stays
+        tradeable for the life of the process."""
+        keep = set(tickers)
+        async with self._lock:
+            for stale in self._ticks.keys() - keep:
+                del self._ticks[stale]

@@ -210,3 +210,6 @@ __marimo__/
 db/*.db
 db/*.db-journal
 !db/.gitkeep
+
+# Frontend static export copied into the backend at Docker build time
+backend/static/

@@ -61,6 +61,9 @@ from config import settings
   - `await cache.snapshot() -> dict[str, PriceTick]` — consistent copy for valuation
   - `await cache.get(ticker) -> PriceTick | None`
   - `await cache.update(tick)` — feed-only; consumers read, never write
+  - `await cache.retain(tickers)` — feed-only; evicts everything outside the
+    active set each cycle, so a de-watchlisted ticker stops being priced (and
+    therefore stops being tradeable) instead of freezing at its last price
 
 - **`PriceTick`** — frozen dataclass: `ticker`, `price`, `previous_price`,
   `direction` ("up"/"down"/"flat"), `timestamp` (ISO 8601 UTC). Serialized as-is

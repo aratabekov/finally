@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: finally:test
+    container_name: finally-e2e
+    ports:
+      - "8000:8000"
+    environment:
+      # Deterministic run: mocked LLM (no network, no API key) and a seeded
+      # simulator. No volume is mounted, so every `up` starts from a freshly
+      # seeded database ($10,000 cash, 10 default tickers, no positions).
+      LLM_MOCK: "true"
+      SIM_SEED: "42"
+      MASSIVE_API_KEY: ""
+      OPENROUTER_API_KEY: "not-used-in-mock-mode"
+      SSE_PUSH_SECONDS: "0.5"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 2s
